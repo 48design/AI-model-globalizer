@@ -831,8 +831,15 @@ if not exist "!GLOBAL_PATH_NORM!" mkdir "!GLOBAL_PATH_NORM!"
 echo Migrating existing global store:
 echo   from: !LEGACY_GLOBAL_PATH_NORM!
 echo   to  : !GLOBAL_PATH_NORM!
+echo.
+echo Counting files to migrate...
+set "MIG_TOTAL_FILES=0"
+for /f %%C in ('powershell -NoProfile -Command "$p=$env:LEGACY_GLOBAL_PATH_NORM; if (Test-Path -LiteralPath $p) { (Get-ChildItem -LiteralPath $p -Recurse -File -ErrorAction SilentlyContinue).Count } else { 0 }"') do set "MIG_TOTAL_FILES=%%C"
+echo Files queued for migration: !MIG_TOTAL_FILES!
+echo Showing live robocopy progress...
+echo.
 
-robocopy "!LEGACY_GLOBAL_PATH_NORM!" "!GLOBAL_PATH_NORM!" /E /MOVE /R:1 /W:1 /NFL /NDL /NJH /NJS /NP >nul
+robocopy "!LEGACY_GLOBAL_PATH_NORM!" "!GLOBAL_PATH_NORM!" /E /MOVE /R:1 /W:1 /ETA /NJH /NJS
 if errorlevel 8 (
     echo WARNING: Legacy global-store migration reported errors.
     echo          You can re-run after checking folder permissions.
