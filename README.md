@@ -1,85 +1,118 @@
 # AI Model Globalizer
 
-A tiny helper to centralize AI model files for deduplication and organization.
+A Windows batch helper that centralizes AI model files into one global repository while keeping original file paths usable via links.
 
 ## What it does
 
-We all know this issue with gigabytes or even terabytes of AI models. We downloaded them manually, or software automatically downloaded them for us. Many applications use the same models, but since they don't communicate with each other ("Hey buddy! Did you already download the latest SDXL model? Yes?! Nice! Then I can use it, too!!"), we end up with multiple copies of the same huge model in multiple places.
+AI toolchains often download the same large models multiple times into different folders.
 
-And you know how crazy storage prices are right now.
+AI Model Globalizer scans for supported model files, groups them into a global structure, and replaces original file paths with links so software can keep using the same paths.
 
-The result is often a chaotic collection of model folders spread across different AI tools, each containing its own copy of checkpoints, LoRAs, ControlNets, VAEs, upscalers, text encoders, and many more. Not only does this waste storage space, it also makes managing and organizing models increasingly difficult.
+The result:
 
-AI Model Globalizer helps solve this problem by scanning your AI-related folders, detecting supported model files, and centralizing them into a single global model repository.
-
-Instead of keeping multiple physical copies of the same file, the original file locations are replaced with NTFS hardlinks. To your AI software, everything still appears exactly where it was before. Under the hood, however, all applications can share the same physical file on disk.
+- less duplicate storage
+- cleaner model organization
+- no per-app path reconfiguration for linked files
 
 ## Features
 
-* Centralize AI models in a single location
-* Reduce duplicate storage usage
-* Keep existing software working without reconfiguration
-* Automatic category detection (LoRA, Checkpoints, ControlNet, VAE, ESRGAN, etc.)
-* Detection of already-globalized files
-* Configurable ignored folders
-* Simulation mode before making changes
-* Detailed scan statistics and processing summary
-* Uses NTFS hardlinks for maximum compatibility
+- Centralized global model store (default: `_global_models`)
+- Custom global store path via CLI (`global=...` or `global ...`)
+- Link mode selection:
+  - `mode=auto` (default)
+  - `mode=hardlink`
+  - `mode=symlink`
+- Auto mode chooses:
+  - hardlink on same NTFS volume
+  - symlink otherwise
+- Detects already-globalized files (hardlink or symlink)
+- Skips ignored folders and reparse-path trees during scan
+- Category detection (Checkpoints, LoRA, ControlNet, VAE, Upscale, Embeddings, etc.)
+- Verify mode (`verify`) for link checks
+- Repair mode (`repair` / `migrate`) for global-store cleanup/normalization
+- Legacy global-folder migration when changing global path (same-volume safe path)
+- Migration progress visibility (file count + live `robocopy` output)
 
-## Global Structure
+## Supported model file types
 
-Models are organized into a structure similar to:
+By default:
+
+- `.safetensors`
+- `.gguf`
+- `.ckpt`
+- `.onnx`
+
+## Global structure
 
 ```text
-_global_models/
-├── Checkpoints/
-│   └── sdxl_base_1.0.safetensors/
-│       └── hash_or_size/
-│           └── sdxl_base_1.0.safetensors
-├── LoRA/
-│   └── cinematic_style.safetensors/
-│       └── hash_or_size/
-│           └── cinematic_style.safetensors
-├── ControlNet/
-│   └── control_v11p_sd15_openpose.pth/
-│       └── hash_or_size/
-│           └── control_v11p_sd15_openpose.pth
+<global_folder>/
+├── <Category>/
+│   └── <ModelName>/
+│       └── <size_or_sha256>/
+│           └── <filename.ext>
 ```
 
-This makes it much easier to see what models you actually have and where they belong.
+Example:
 
-## Supported Model Types
+```text
+_MODELS_/Checkpoints/sdxl_base_1.0/size_6754032123/sdxl_base_1.0.safetensors
+```
 
-By default the script scans common AI model formats such as:
+## CLI usage
 
-* `.safetensors`
-* `.gguf`
-* `.ckpt`
-* `.onnx`
-* `.bin`
+```text
+ai_model_globalizer.bat [verify|repair] [global=PATH | global PATH] [mode=auto|hardlink|symlink | mode VALUE]
+```
 
-Additional formats can easily be added.
+## Examples
 
-## How It Works
+```text
+ai_model_globalizer.bat
+ai_model_globalizer.bat --help
+ai_model_globalizer.bat "global _MODELS_"
+ai_model_globalizer.bat "global=_MODELS_"
+ai_model_globalizer.bat "global=D:\AI\_global_models"
+ai_model_globalizer.bat global "D:\AI Models\_MODELS_"
+ai_model_globalizer.bat /global=D:\AI\_global_models /mode=auto
+ai_model_globalizer.bat mode=hardlink
+ai_model_globalizer.bat verify "global=D:\AI\_global_models"
+```
 
-1. Scan all configured folders
-2. Skip ignored directories
-3. Skip files already located in the global repository
-4. Skip files already hardlinked to the global repository
-5. Categorize detected models
-6. Show a detailed summary
-7. Wait for confirmation
-8. Copy models into the global repository
-9. Replace original files with NTFS hardlinks
+## How it works
 
-No changes are made until execution is explicitly confirmed.
+### Normal run
+
+1. Optional legacy migration check (if global folder changed)
+2. Scan model files recursively
+3. Skip ignored folders, reparse trees, global-folder files, already-globalized files
+4. Categorize candidates and summarize
+5. Wait for explicit confirmation (`E`)
+6. Move/store into global structure
+7. Recreate original file path as hardlink or symlink (per mode)
+
+### Legacy migration behavior
+
+When you change global folder from default `_global_models`:
+
+- same volume: script migrates legacy store to new global path before scan
+- cross-volume: migration is skipped for safety and a notice is shown
+
+## Notes on links
+
+- Hardlinks require same NTFS volume.
+- Symlink creation may require admin rights or Developer Mode.
+- No copy-only fallback mode is used for link replacement.
+- If link creation fails, source restoration is attempted.
 
 ## Requirements
 
-* Windows
-* NTFS file system
-* Permission to create hardlinks (`mklink /H`)
+- Windows
+- NTFS for hardlink mode
+- Permission to create links (`mklink /H` for hardlinks, `mklink` for symlinks)
+- Enough free space for temporary move/organization operations
 
-## Disclaimer
+## Safety / disclaimer
 
-Always keep backups of important data and test on a smaller collection before processing a large model library. While the script tries to be careful, you are ultimately responsible for your own data.
+- Always back up important data first.
+- Test on a small model subset before running on large libraries.
+- You are responsible for validating results in your environment.
