@@ -227,10 +227,12 @@ This repo includes a workflow at `.github/workflows/release.yml`.
 - End users do **not** need GitHub Actions.
 - End users just download the `.exe` (or `.zip`) from **GitHub Releases** and run it.
 - The workflow is for maintainers who publish new releases.
+- Windows may show an "unknown publisher" / SmartScreen warning because the EXE is not code-signed yet.
+- Releases include `SHA256SUMS.txt` so downloads can be checked against published hashes.
 
 What it does:
 - builds a single-file Native AOT `AiModelGlobalizer.exe` for `win-x64`
-- creates release assets (`.exe` and `.zip`)
+- creates release assets (`.exe`, `.zip`, and `SHA256SUMS.txt`)
 - publishes them to GitHub Releases when you push a tag like `v1.0.0`
 
 ### Publish a new downloadable release

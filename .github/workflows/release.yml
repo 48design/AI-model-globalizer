@@ -54,6 +54,13 @@ jobs:
 
           Copy-Item $exe "$outDir/AiModelGlobalizer-$tag-win-x64-aot.exe" -Force
 
+          Push-Location $outDir
+          Get-ChildItem -File | Where-Object { $_.Extension -in '.exe', '.zip' } | Sort-Object Name | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content -Encoding ascii SHA256SUMS.txt
+          Pop-Location
+
       - name: Create GitHub Release (tags only)
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
@@ -61,6 +68,7 @@ jobs:
           files: |
             artifacts/release/assets/*.exe
             artifacts/release/assets/*.zip
+            artifacts/release/assets/SHA256SUMS.txt
           generate_release_notes: true
 
       - name: Upload build artifacts (manual runs)
