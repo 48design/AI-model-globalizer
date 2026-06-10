@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Publish Native AOT single-file (win-x64)
+        run: >-
+          dotnet publish csharp/AiModelGlobalizer.csproj
+          -c Release
+          -f net9.0
+          -r win-x64
+          --self-contained true
+          -p:PublishAot=true
+          -p:StripSymbols=true
+          -o artifacts/release/win-x64
+
+      - name: Prepare release assets
+        shell: pwsh
+        run: |
+          $tag = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "manual-${{ github.run_number }}" }
+          $exe = "artifacts/release/win-x64/AiModelGlobalizer.exe"
+          if (!(Test-Path $exe)) { throw "EXE not found at $exe" }
+
+          $outDir = "artifacts/release/assets"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          $portableDir = "artifacts/release/portable"
+          New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
+          Copy-Item $exe "$portableDir/AiModelGlobalizer.exe" -Force
+          if (Test-Path "README.md") { Copy-Item "README.md" "$portableDir/README.md" -Force }
+
+          $zipPath = "$outDir/AiModelGlobalizer-$tag-win-x64-aot.zip"
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path "$portableDir/*" -DestinationPath $zipPath
+
+          Copy-Item $exe "$outDir/AiModelGlobalizer-$tag-win-x64-aot.exe" -Force
+
+      - name: Create GitHub Release (tags only)
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/release/assets/*.exe
+            artifacts/release/assets/*.zip
+          generate_release_notes: true
+
+      - name: Upload build artifacts (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: AiModelGlobalizer-win-x64-aot
+          path: artifacts/release/assets/*

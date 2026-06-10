@@ -1,0 +1,6 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "dotnet publish": true,
+        "d:\\PROGRAMME\\KI\\AI-model-globalizer\\csharp\\build.bat": true
+    }
+}
